@@ -1,0 +1,71 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "hysea-web"
+version = "0.1.0"
+description = "FastAPI service with SQLAlchemy async models and Alembic migrations"
+readme = "migrations/README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.110",
+    "uvicorn>=0.30",
+    "sqlalchemy>=2.0",
+    "alembic>=1.13",
+    "asyncpg>=0.29",
+    "pydantic-settings>=2.2",
+    "h5py>=3.11",
+    "numpy>=1.26",
+    "redis>=5.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "ruff>=0.6",
+]
+ml-cpu = [
+    "torch",
+    "nvidia-physicsnemo",
+    "nvidia-physicsnemo-sym"
+]
+ml-cu12 = [
+    "torch>=2.0",
+    "nvidia-physicsnemo[cu12]",
+    "nvidia-physicsnemo-sym"
+]
+ml-cu13 = [
+    "torch>=2.0",
+    "nvidia-physicsnemo[cu13,nn-extras]",
+    "nvidia-physicsnemo-sym"
+]
+
+[tool.alembic]
+script_location = "migrations"
+prepend_sys_path = "."
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["app*"]
+exclude = ["migrations*"]
+
+# This tells uv to provide torch when building the physicsnemo wheel
+[tool.uv.extra-build-dependencies]
+nvidia-physicsnemo = ["torch"]
+"nvidia-physicsnemo-sym" = ["torch"]
+
+[tool.uv]
+index-url = "https://pypi.nvidia.com"
+extra-index-url = ["https://pypi.org/simple/"]
+override-dependencies = [
+    "cuml-cu12>=24.12.0",
+    "cudf-cu12>=24.12.0"
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"

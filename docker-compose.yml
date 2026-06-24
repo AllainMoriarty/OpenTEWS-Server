@@ -1,0 +1,112 @@
+services:
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-tews_db}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "${POSTGRES_HOST_PORT:-5433}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-tews_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  migrate:
+    image: hysea-server:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      POSTGRES_HOST: db
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: ${POSTGRES_DB:-tews_db}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      SCRAPER_CRON_ENABLED: "false"
+    command: ["alembic", "upgrade", "head"]
+    restart: "no"
+
+  server:
+    image: hysea-server:latest
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    environment:
+      POSTGRES_HOST: db
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: ${POSTGRES_DB:-tews_db}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      SCRAPER_CRON_ENABLED: ${SCRAPER_CRON_ENABLED:-true}
+      SCRAPER_CRON_INTERVAL_MINUTES: ${SCRAPER_CRON_INTERVAL_MINUTES:-5}
+      SCRAPER_RUN_ON_STARTUP: ${SCRAPER_RUN_ON_STARTUP:-true}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_DB: ${REDIS_DB:-0}
+      REDIS_ENABLED: ${REDIS_ENABLED:-true}
+      PREDICTION_CACHE_TTL_SECONDS: ${PREDICTION_CACHE_TTL_SECONDS:-300}
+      WEBSOCKET_REDIS_CHANNEL: ${WEBSOCKET_REDIS_CHANNEL:-hysea:events}
+      CORS_ENABLED: ${CORS_ENABLED:-true}
+      CORS_ORIGINS: ${CORS_ORIGINS:-["https://your-app.vercel.app","http://localhost:3000","http://127.0.0.1:3000"]}
+    volumes:
+      - ./datasets:/app/datasets:ro
+    expose:
+      - "8000"
+
+  test-inference:
+    image: hysea-server:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: python infer_local.py
+    volumes:
+      - ./infer_local.py:/app/infer_local.py:ro
+      - ./datasets:/app/datasets:ro
+    profiles:
+      - testing
+
+  nginx:
+    build:
+      context: ./nginx
+      dockerfile: Dockerfile
+    image: hysea-nginx:latest
+    restart: unless-stopped
+    depends_on:
+      server:
+        condition: service_started
+    ports:
+      - "${HTTP_PORT:-8080}:80"
+      - "${HTTPS_PORT:-8443}:443"
+    volumes:
+      - ./certs:/etc/nginx/certs:ro
+
+volumes:
+  postgres_data:
+  redis_data:

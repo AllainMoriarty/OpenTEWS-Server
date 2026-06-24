@@ -1,0 +1,98 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg
+*.egg-info/
+.eggs/
+build/
+dist/
+develop-eggs/
+downloads/
+etc/
+lib/
+parts/
+sdist/
+wheels/
+share/python-wheels/
+var/
+wheels/
+*.manifest
+*.spec
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Virtual envs
+.venv/
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Testing / coverage
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.nox/
+coverage.xml
+*.cover
+.hypothesis/
+
+# Type checkers
+.mypy_cache/
+.pyre/
+.pytype/
+.ruff_cache/
+
+# Jupyter
+.ipynb_checkpoints
+
+# Datasets (heavy, keep out of git)
+datasets/*.h5
+datasets/*.hdf5
+datasets/*.pt
+datasets/*.pth
+datasets/*.npz
+
+# Models (heavy weights, keep out of git)
+models/*.pt
+models/*.pth
+models/*.bin
+
+# Logs
+*.log
+logs/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+
+# SSL / certificates (sensitive)
+certs/
+*.pem
+*.key
+
+# Docker
+.docker/
+
+# Utility scripts (not for production)
+infer_*.py
+!infer_local.py
+insert_dummy.py
+test_scraping.py
+
+# Build artifacts
+hysea_web.egg-info/
