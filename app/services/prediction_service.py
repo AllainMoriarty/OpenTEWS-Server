@@ -24,11 +24,9 @@ logger = logging.getLogger(__name__)
 # Constants identical to infer_*.py scripts
 NLAT = 349
 NLON = 780
-NTIME = 4
 
 BATHY_MEAN = 1762.6815185546875
 BATHY_STD = 2185.7099609375
-ETA_MAX = 68.7637
 AT_MAX = 14399.7294921875
 
 FEAT_MEAN = np.array(
@@ -216,25 +214,6 @@ class PredictionService:
         )
         self.model_at.eval()
 
-        # 3. Load ETA Timeseries Model
-        kwargs_eta = dict(
-            nlat=NLAT,
-            nlon=NLON,
-            latent_channels=32,
-            num_fno_layers=3,
-            num_fno_modes=8,
-            decoder_layer_size=64,
-            out_channels=NTIME,
-            task="eta",
-            H_raw=None,
-            grid_info=None,
-        )
-        self.model_eta = MFPino(**kwargs_eta).to(device)
-        self.model_eta.load_state_dict(
-            torch.load("./models/pino_eta.pt", map_location=device, weights_only=True), strict=False
-        )
-        self.model_eta.eval()
-
         logger.info("PredictionService models loaded successfully.")
 
     def _determine_tsunami_potential(self, magnitude: float, depth_km: float) -> TsunamiPotential:
@@ -368,7 +347,7 @@ class PredictionService:
                 "arrival_time": prediction.arrival_time.isoformat()
                 if prediction.arrival_time
                 else None,
-                "eta_series": prediction.eta_series,
+
             }
         )
         try:
@@ -389,7 +368,6 @@ class PredictionService:
                 tsunami_potential=TsunamiPotential(cached["tsunami_potential"]),
                 max_height=cached["max_height"],
                 arrival_time=arrival_time,
-                eta_series=cached["eta_series"],
             )
 
         prediction = await self._compute_prediction(earthquake)
@@ -406,7 +384,6 @@ class PredictionService:
                 tsunami_potential=tsunami_potential,
                 max_height=None,
                 arrival_time=None,
-                eta_series=None,
             )
 
         # Build features array exactly as expected
@@ -435,20 +412,10 @@ class PredictionService:
             minutes=local_result["eta_minutes"]
         )
 
-        with torch.no_grad():
-            # ETA Timeseries Inference
-            pred_eta_norm = self.model_eta(x_t, self.bathy_t, fidelity="hf")
-            pred_eta_m = pred_eta_norm.squeeze(0).cpu().numpy() * ETA_MAX
-            # The ETA series logic from the file gets max eta for each timestep
-            eta_series_val = [
-                float(np.nan_to_num(pred_eta_m[t], nan=0.0).max()) for t in range(NTIME)
-            ]
-
         prediction = Prediction(
             earthquake_id=earthquake.id,
             tsunami_potential=tsunami_potential,
             max_height=max_height_val,
             arrival_time=arrival_time_val,
-            eta_series=eta_series_val,
         )
         return prediction
